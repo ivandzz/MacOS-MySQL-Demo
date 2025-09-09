@@ -57,17 +57,29 @@ final class DatabaseManager: ObservableObject {
         }
     }
     
-    func fetchBooks() {
+    func fetchBooks(searchTerm: String? = nil) {
+        var baseQuery = "SELECT id, title, author FROM Books"
+        var bindings: [MySQLData] = []
+        
+        if let searchTerm = searchTerm, !searchTerm.isEmpty {
+            let pattern = "%\(searchTerm)%"
+            baseQuery += " WHERE title LIKE ? OR author LIKE ?"
+            bindings.append(MySQLData(string: pattern))
+            bindings.append(MySQLData(string: pattern))
+        }
+        
         do {
-            let rows = try connection?.query("SELECT id, title, author FROM Books").wait() ?? []
+            let rows = try connection?
+                .query(baseQuery, bindings)
+                .wait() ?? []
+            
             let fetched = rows.compactMap { row -> Book? in
-                guard
-                    let id = row.column("id")?.int,
-                    let title = row.column("title")?.string,
-                    let author = row.column("author")?.string
-                else { return nil }
+                guard let id = row.column("id")?.int,
+                      let title = row.column("title")?.string,
+                      let author = row.column("author")?.string else { return nil }
                 return Book(id: id, title: title, author: author)
             }
+            
             DispatchQueue.main.async {
                 self.books = fetched
             }
@@ -78,9 +90,9 @@ final class DatabaseManager: ObservableObject {
     
     func addBook(title: String, author: String) {
         do {
-            let _ = try connection?.query(
-                "INSERT INTO Books (title, author) VALUES ('\(title)', '\(author)')"
-            ).wait()
+            let _ = try connection?
+                .query("INSERT INTO Books (title, author) VALUES ('\(title)', '\(author)')")
+                .wait()
             fetchBooks()
         } catch {
             print("Insert error: \(error)")
@@ -89,9 +101,9 @@ final class DatabaseManager: ObservableObject {
     
     func updateBook(book: Book) {
         do {
-            let _ = try connection?.query(
-                "UPDATE Books SET title='\(book.title)', author='\(book.author)' WHERE id=\(book.id)"
-            ).wait()
+            let _ = try connection?
+                .query("UPDATE Books SET title='\(book.title)', author='\(book.author)' WHERE id=\(book.id)")
+                .wait()
             fetchBooks()
         } catch {
             print("Update error: \(error)")
@@ -100,9 +112,9 @@ final class DatabaseManager: ObservableObject {
     
     func deleteBook(book: Book) {
         do {
-            let _ = try connection?.query(
-                "DELETE FROM Books WHERE id=\(book.id)"
-            ).wait()
+            let _ = try connection?
+                .query("DELETE FROM Books WHERE id=\(book.id)")
+                .wait()
             fetchBooks()
         } catch {
             print("Delete error: \(error)")

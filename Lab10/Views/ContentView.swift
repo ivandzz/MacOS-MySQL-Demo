@@ -13,6 +13,7 @@ struct ContentView: View {
     
     @State private var newTitle = ""
     @State private var newAuthor = ""
+    @State private var searchText = ""
     
     private enum Field: Hashable {
         case title, author
@@ -80,6 +81,15 @@ struct ContentView: View {
             .navigationTitle("Бібліотека")
             .onAppear {
                 db.fetchBooks()
+            }
+            .searchable(text: $searchText, prompt: "Пошук за назвою або автором")
+            .onSubmit(of: .search) {
+                db.fetchBooks(searchTerm: searchText)
+            }
+            .onChange(of: searchText) { newValue in
+                if newValue.isEmpty {
+                    db.fetchBooks()
+                }
             }
             .sheet(item: $bookToEdit) { book in
                 if let index = db.books.firstIndex(where: { $0.id == book.id }) {
